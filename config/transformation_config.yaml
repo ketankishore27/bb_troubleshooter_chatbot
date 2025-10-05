@@ -1,0 +1,43 @@
+RDK_metrics:
+  transfer_as_is: ['manufacturer','productclass','serialnumber','firmware_version','hardware_version']
+  count: ['telemetry_restart','ip_interface_1_reboot', 'ethernet_interface_reboot','wifi_radio_1_channel_change','wifi_radio_2_channel_change','total_band_change','hardware_reboot','firmware_reboot']
+  total_sum: ['wifi_ssid_1_stats_retranscount','wifi_ssid_2_stats_retranscount','wifi_ssid_1_stats_unknownprotopacketsreceived',
+              'wifi_ssid_2_stats_unknownprotopacketsreceived','ethernet_link_1_stats_unknownprotopacketsreceived']
+  min_max_avg: ['cpuusage','cpu_temp_split', 'memory_utilization','gpon_rxsignallevel']
+  max: ['wifi_ssid_1_stats_bytessent','wifi_ssid_1_stats_bytesreceived',
+               'wifi_ssid_2_stats_bytessent','wifi_ssid_2_stats_bytesreceived',
+               'ip_interface_1_stats_bytessent','ip_interface_1_stats_bytesreceived',
+               'ethernet_link_1_stats_bytessent','ethernet_link_1_stats_bytesreceived',
+               'ppp_interface_1_stats_errorssent','wifi_ssid_1_stats_errorssent',
+               'wifi_ssid_2_stats_errorssent','ethernet_link_1_stats_errorssent',
+               'downlink_rate_max','uplink_rate_max','flash_usage_nvram_split_perc',
+               'wifi_radio_1_stats_x_comcast_com_channelutilization',
+               'wifi_radio_2_stats_x_comcast_com_channelutilization',
+               'hosts_connected_device_number']
+  min:  ['signalstrength_min']
+  perc:
+    attr1: ['wifi_accesspoint_1_associateddevicenumberofentries','wifi_accesspoint_1_maxassociateddevices']
+    attr2: ['wifi_accesspoint_2_associateddevicenumberofentries','wifi_accesspoint_2_maxassociateddevices']
+
+  # connected authenticating
+  conditions_1: ['gpon_connectionstatus']
+  # up down error dormant
+  conditions_2: ['ppp_interface_1_status','wifi_radio_1_status','wifi_radio_2_status','wifi_ssid_1_status','wifi_ssid_2_status','ip_interface_1_status','ethernet_link_1_status']
+  # enabled disabled error
+  conditions_3: ['wifi_accesspoint_1_status','wifi_accesspoint_2_status','dhcpv4_server_pool_1_status']
+
+  data_rate: 
+    attr1: ['wifi_ssid_1_stats_bytessent','wifi_ssid_1_stats_bytesreceived']
+    attr2: ['wifi_ssid_2_stats_bytessent','wifi_ssid_2_stats_bytesreceived']
+    attr3: ['ip_interface_1_stats_bytessent','ip_interface_1_stats_bytesreceived']
+    attr4: ['ethernet_link_1_stats_bytessent','ethernet_link_1_stats_bytesreceived']         
+
+  channels_in_use: ['wifi_radio_1_channelsinuse','wifi_radio_2_channelsinuse']
+  slope: ['cpuusage','cpu_temp_split', 'memory_utilization','gpon_rxsignallevel',
+          'downlink_rate_max','uplink_rate_max','flash_usage_nvram_split_perc',
+          'wifi_radio_1_stats_x_comcast_com_channelutilization', 'wifi_radio_2_stats_x_comcast_com_channelutilization']
+  iqr: ['cpuusage', 'cpu_temp_split', 'wifi_radio_1_stats_noise', 'wifi_radio_2_stats_noise',
+        'wifi_radio_1_stats_x_comcast_com_channelutilization', 'wifi_radio_2_stats_x_comcast_com_channelutilization',
+        'wifi_radio_1_operatingchannelbandwidth', 'wifi_radio_2_operatingchannelbandwidth',
+        'gpon_rxsignallevel','memory_utilization', 'flash_usage_nvram_split_perc', 'signalstrength_avg', 
+        'downlink_rate_avg','uplink_rate_avg', 'total_band_change']

@@ -1,0 +1,69 @@
+﻿Category,Field Name,Description,dtype
+Router Information,manufacturer,manufacturer of device,str
+Router Information,productclass,router model name,str
+Router Information,serialnumber,serial number of router,str
+Router Information,firmware_version,firmware version,str
+Router Information,hardware_version,hardware version,str
+Router Utilization,memory_utilization_max,"max memory usage percentage (normal: 0-80%, critical: >90%)",number
+Router Utilization,memory_utilization_min,"min memory usage percentage (normal: 0-80%, critical: >90%)",number
+Router Utilization,memory_utilization_avg,"average memory usage percentage (normal: 0-80%, critical: >90%)",number
+Router Utilization,flash_usage_nvram_split_perc_max,flash memory max utilized percentage (affects router core functionalities execution),number
+Router Utilization,cpuusage_min,"min cpu usage percentage (normal: 0-70%, critical: >80%)",number
+Router Utilization,cpuusage_max,"max cpu usage percentage (normal: 0-70%, critical: >80%)",number
+Router Utilization,cpuusage_avg,"average cpu usage percentage (normal: 0-70%, critical: >80%)",number
+Router Utilization,cpu_temp_split_min,"min cpu temperature (normal: 40-60, critical: 70-90)",number
+Router Utilization,cpu_temp_split_max,"max cpu temperature (normal: 40-60, critical: 70-90)",number
+Router Utilization,cpu_temp_split_avg,"avg cpu temperature (normal: 40-60, critical: 70-90)",number
+Router Utilization,gpon_rxsignallevel_min,min GPON optical signal level in dBm (normal: -100 to -13),number
+Router Utilization,gpon_rxsignallevel_max,max GPON optical signal level in dBm (normal: -100 to -13),number
+Router Utilization,gpon_rxsignallevel_avg,average GPON optical signal level in dBm (normal: -100 to -13),number
+Router Utilization,total_band_change_count,Total WiFi band changes (normal: <5 per hour),number
+Router Utilization,signalstrength_min,"min signal strength in dBm (ok: -13 to -70, poor: < -100)",number
+Connectivity Status,gpon_connectionstatus_Up_percentage,Up status appearance percentage for ppp interface,number
+Connectivity Status,wifi_radio_1_status_Up_percentage,Up status appearance percentage for wifi radio of 2.4GHz,number
+Connectivity Status,wifi_radio_2_status_Up_percentage,Up status appearance percentage for wifi radio of 5GHz,number
+Connectivity Status,wifi_ssid_1_status_Up_percentage,Up status appearance percentage  for wifi ssid of  2.4GHz,number
+Connectivity Status,wifi_ssid_2_status_Up_percentage,Up status appearance percentage  for wifi ssid of  5GHz,number
+Connectivity Status,ethernet_link_1_status_Up_percentage,Up status appearance percentage  for ethernet link,number
+Connectivity Status,wifi_accesspoint_1_status_Up_percentage,Up status appearance percentage for wifi accesspoint of  2.4GHz,number
+Connectivity Status,wifi_accesspoint_2_status_Up_percentage,Up status appearance percentage for wifi accesspoint of  5GHz,number
+Connectivity Status,dhcpv4_server_pool_1_status_Up_percentage,Up status appearance percentage for dhcpv4,number
+Connectivity Status,gpon_connectionstatus_Up_percentage,Up status appearance percentage for gpon optical signal level status,number
+Connectivity Status,ip_interface_1_status_Up_percentage,Up status appearance percentage for ip interface,number
+Connectivity Status,wifi_radio_1_total_channels_used,total channels used for 2.4GHz frequency,number
+Channel Utilization,wifi_radio_2_total_channels_used,total channels used for 5GHz frequency,number
+Channel Utilization,wifi_radio_1_stats_x_comcast_com_channelutilization_max,wifi radio 2.4 GHz channels utilization maximum,number
+Channel Utilization,wifi_radio_2_stats_x_comcast_com_channelutilization_max,wifi radio 5 GHz channels utilization maximum,number
+Channel Utilization,wifi_radio_1_overlapping_channels,binary metric to indicate if there are channel overlaps (channel overlapping lead to interference and degradation of the network),str
+Channel Utilization,wifi_radio_1_channel_change_count,channel changes count for 2.4GHz ,number
+Channel Utilization,wifi_radio_2_channel_change_count,channel changes count for 5GHz ,number
+CPE Reboot,hadware_reboot_count,total count of reboots within period,number
+Firmware Reboot,firmware_reboot_count,count of firmware updates. Firmware updates are followed by reboots.,number
+Interface Reboot,telemetry_restart_count,total count of telemetry restarts,number
+Interface Reboot,ip_interface_1_reboot_count,total count of ip interface restarts,number
+Interface Reboot,ethernet_interface_reboot_count,total count of ethernet interface restarts,number
+Traffic,wifi_ssid_1_stats_retranscount_sum,wifi ssid packet retransmission count for 2.4GHz,number
+Traffic,wifi_ssid_2_stats_retranscount_sum,wifi ssid packet retransmission count for 5GHz,number
+Traffic,downlink_rate_max,maximum downlink rate,number
+Traffic,uplink_rate_max,maximum uplink rate,number
+Traffic,wifi_ssid_1_stats_unknownprotopacketsreceived_sum,wifi ssid 2.4GHz unknown proto packets received. High amount indicates router misconfiguration,number
+Traffic,wifi_ssid_2_stats_unknownprotopacketsreceived_sum,wifi ssid 5GHz unknown proto packets received. High amount indicates router misconfiguration,number
+Traffic,wifi_ssid_1_stats_bytessent_max,wifi ssid 2.4GHz max bytes sent,number
+Traffic,wifi_ssid_1_stats_bytesreceived_max,wifi ssid 2.4GHz max bytes received,number
+Traffic,wifi_ssid_2_stats_bytessent_max,wifi ssid 5GHz max bytes sent,number
+Traffic,wifi_ssid_2_stats_bytesreceived_max,wifi ssid 5GHz max bytes received,number
+Traffic,ip_interface_1_stats_bytessent_max,ip interface max bytes  sent,number
+Traffic,ip_interface_1_stats_bytesreceived_max,ip interface max bytes received,number
+Traffic,ethernet_link_1_stats_bytessent_max,ethernet max bytes sent ,number
+Traffic,ethernet_link_1_stats_bytesreceived_max,ethernet max bytes received,number
+Traffic,ppp_interface_1_stats_errorssent_max,ppp interface max errors sent,number
+Traffic,wifi_ssid_1_stats_errorssent_max,wifi ssid 2.4GHz max errors sent,number
+Traffic,wifi_ssid_2_stats_errorssent_max,wifi ssid 5GHz max errors sent,number
+Traffic,ethernet_link_1_stats_errorssent_max,ethernet max errors sent,number
+Traffic,wifi_ssid_1_stats_bytessent_datarate_max,wifi ssid 2.4GHz datarate max,number
+Traffic,wifi_ssid_2_stats_bytessent_datarate_max,wifi ssid 5GHz datarate max,number
+Traffic,ip_interface_1_stats_bytessent_datarate_max,ip interface datarate max,number
+Traffic,ethernet_link_1_stats_bytessent_datarate_max,ethernet datarate max,number
+Connected Devices,wifi_accesspoint_1_associateddevicenumberofentries_perc_max,percentage of associated devices linked to wifi 2.4GHz to the amount of total allowed,number
+Connected Devices,wifi_accesspoint_2_associateddevicenumberofentries_perc_max,percentage of associated devices linked to wifi 2.4GHz to the amount of total allowed,number
+Connected Devices,hosts_connected_device_number_max,"maximum number of devices connected (wifi, lan or ethernet)",number
