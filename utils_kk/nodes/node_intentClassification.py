@@ -57,6 +57,13 @@ def intent_classification_node(state: customGraph):
             serial_number = extract_serial_number(state)
             #structlogger.debug("Using AI to extract serial number: ", detail=serial_number)
             
+            if not serial_number:
+                return {
+                            "intent_classification": "chit-chat", 
+                            "chat_history": [HumanMessage(content=str(query))],
+                            "intermediate_result": [AIMessage(content="Respond to the non technical question (if any) and Ask for SerialNumber")],
+                        }
+
         structlogger.debug("-- From intent classification node", detail=query)
         output_format = PydanticOutputParser(
             pydantic_object = IntentClassificationResult).get_format_instructions()

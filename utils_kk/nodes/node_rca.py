@@ -9,7 +9,7 @@ from utils_kk.variables.variable_definitions import customGraph
 from utils_kk.llm_initializations import llm
 import structlog
 from utils_kk.misl_function.misl_getData import get_data
-from utils_kk.prompts.prompts_rca import rca_classification_template
+from utils_kk.prompts.prompts_rca import rca_classification_template_3
 from utils_kk.tool_functions.tool_calling_funcs import *
 from langchain.prompts import ChatPromptTemplate
 from langchain.prompts import MessagesPlaceholder
