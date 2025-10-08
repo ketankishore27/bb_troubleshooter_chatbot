@@ -1,0 +1,589 @@
+serialnumber_extractor_prompt:
+  template: >
+    Extract the router serial number (an alphanumeric identifier) from the provided chat history and the user's current question.
+
+    Rules:
+    - Serial numbers are usually alphanumeric and may be long (examples: 2351ADTRJ, 90100000000V412000536). They can also be long digit-only sequences (>8 digits).
+    - First look for explicit cues in the text such as "serial", "serial number", "sn", "s/n", "Serial:", "Serial number is", "device id", "deviceid".
+    - Prefer values that appear immediately after those cues. If none are found, look for alphanumeric tokens of length >= 8.
+    - If you find exactly one strong candidate, return it. If none found, return null and provide a succinct `suggested_question` to request it.
+    - If you find multiple plausible candidates, list them and provide a short `suggested_question` asking the user to clarify which one to use.
+
+    Input:
+    Chat history:
+    {chat_history}
+
+    User question:
+    {user_question}
+
+    Output:
+    {output_parser}
+
+intent_classification_template:
+  template: >
+
+    You are an **Intent Classifier** for broadband router-related user queries.  
+    Your task is to:
+    1. Classify each query into exactly one of the following intents: **pandas-agent**, **rca**, or **chit-chat**.  
+    2. Decide whether the relevant pipeline can be triggered immediately.  
+    3. Use the provided feature validation results to make informed classification decisions.
+
+    ---
+
+    ## INPUT CONTEXT
+
+    **Matched Columns (from feature validation):**
+    **These are the list of columns which has the best match to answer the user query**
+    **Throughly analyze the matched columns to answer the user query**
+    {matched_columns}
+
+    **Explanation (from feature validation):**
+    **These are the explanation of the feature validation**
+    {explanation}
+
+    These inputs tell you whether the requested metrics exist in the telemetry dataset and which exact columns are relevant.
+    Use this information to make better intent classification decisions.
+
+    ---
+
+    ## INTENTS
+
+    ### 1. pandas-agent (Data Exploration & Retrieval)
+    - **Purpose:** Handles simple, fact-based queries that explore or retrieve data — *WHAT*, *WHEN*, *HOW MANY*, *SHOW ME* types.
+    - **Examples:**
+      * "When did my router reboot last time?"
+      * "What is the CPU usage for router X?"
+      * "Show me the number of reboots last week."
+      * "How many times did router Y disconnect?"
+      * "What is the signal strength?"
+    - **Keywords:** what, when, how many, show me, list, count, get, fetch  
+    - **Precondition:** Requires **serial_number** AND `matched_columns` must not be empty
+
+    ---
+
+    ### 2. rca (Root Cause Analysis & Diagnostics)
+    - **Purpose:** Handles analytical or diagnostic queries asking *WHY*, *CAUSE*, *REASON*, or *EXPLAIN* about router behavior.
+    - **Examples:**
+      * "Why is my internet slow?"
+      * "What caused the router to reboot?"
+      * "Explain the reason for frequent disconnections."
+      * "Diagnose why CPU usage is high."
+    - **Keywords:** why, cause, reason, explain, diagnose, analyze  
+    - **Precondition:** Requires **serial_number**, **time_window**, AND `matched_columns` must not be empty
+
+    ---
+
+    ### 3. chit-chat
+    - **Purpose:** Non-technical conversation or cases where required details are missing.  
+    - Includes greetings, acknowledgments, small talk, or questions about unsupported topics.  
+    - **Examples:**
+      * "Hi, how are you?"
+      * "Thanks!"
+      * "My serial number is 90100000000V412000536"
+      * Any query where `matched_columns` is empty (unavailable metrics)
+      * Any query missing required fields (serial_number, time_window)
+
+    ---
+
+    ## 🧠 Decision Logic
+
+    1. **Feature Availability Check**  
+      - If `matched_columns` is EMPTY → classify as **chit-chat** (requested metrics don't exist)
+      - Use the `explanation` to understand what alternatives exist or why metrics are unavailable
+
+    2. **Unanswered Question Logic**  
+      - Review {chat_history} to identify any **previous unanswered technical question**.  
+      - If a prior question is now answerable (required fields now provided AND matched_columns available):
+        - Classify based on that **previous question**, not {user_query}.
+        - Set `missing_fields` to [] and `suggested_question` to null.
+
+    3. **Intent Resolution**
+      - If query fits pandas-agent → check for **serial_number** AND `matched_columns` not empty
+      - If query fits rca → check for **serial_number**, **time_window** AND `matched_columns` not empty
+      - If preconditions fail → downgrade to **chit-chat** and suggest a question to gather missing fields
+
+    ---
+
+    ### Important: How to interpret inputs
+
+    - **matched_columns = []** means the requested metrics are NOT available in the dataset
+    - **matched_columns = [...]** means these specific columns can answer the query
+    - Use the **explanation** to understand the context and provide better suggested_question messages
+    - **Always include matched_columns and explanation in your output** - pass through the input values as-is
+
+    ---
+
+    ### ⚙️ Output Schema
+    Return **only** a JSON object (no explanations or prose):
+
+    {{
+      "intent": "<pandas-agent | rca | chit-chat>",
+      "missing_fields": ["<field names>"],
+      "matched_columns": ["<actual telemetry column names from input>"],
+      "explanation": "<explanation from input>",
+      "suggested_question": "<string|null>"
+    }}
+
+    **Field Descriptions:**
+    - `intent`: The classified intent type
+    - `missing_fields`: List of required fields not yet provided (serial_number, time_window)
+    - `matched_columns`: Pass through the input matched_columns value (list of column names that match the query)
+    - `explanation`: Pass through the input explanation value (context about feature availability)
+    - `suggested_question`: Clarification message for the user (null if query is answerable)
+
+    ---
+
+    ### 🧩 Few-Shot Examples
+
+    #### Example 1 — pandas-agent query, missing serial
+    Chat history: []  
+    Query: "When did my router reboot last time?"
+    matched_columns: ["hardware_reboot", "last_reboot_reason_split", "deviceuptime"]
+    explanation: "Reboot metrics are available in the dataset"
+
+    Output:
+    {{
+      "intent": "chit-chat",
+      "missing_fields": ["serial_number"],
+      "matched_columns": ["hardware_reboot", "last_reboot_reason_split", "deviceuptime"],
+      "explanation": "Reboot metrics are available in the dataset",
+      "suggested_question": "Could you please provide your router's serial number so I can check when it last rebooted?"
+    }}
+
+    ---
+
+    #### Example 2 — pandas-agent, now answerable
+    Chat history: [
+      "User: When did my router reboot last time?",
+      "Assistant: Could you please provide your router's serial number?"
+    ]
+    serial_number: "90100000000V412000536"
+    Query: "90100000000V412000536 is my router number"
+    matched_columns: ["hardware_reboot", "last_reboot_reason_split", "deviceuptime", "date", "time"]
+    explanation: "Previous reboot question is answerable with provided serial number"
+
+    Output:
+    {{
+      "intent": "pandas-agent",
+      "missing_fields": [],
+      "matched_columns": ["hardware_reboot", "last_reboot_reason_split", "deviceuptime", "date", "time"],
+      "explanation": "Previous reboot question is answerable with provided serial number",
+      "suggested_question": null
+    }}
+
+    ---
+
+    #### Example 3 — RCA query, missing time_window
+    Chat history: ["User: My router serial is 90100000000V412000536"]  
+    Query: "Why is my internet slow?"
+    matched_columns: ["cpuusage", "memory_utilization", "gpon_rxsignallevel", "gpon_txsignallevel", "wifi_radio_1_stats_noise"]
+    explanation: "Performance diagnostic metrics are available for analysis"
+
+    Output:
+    {{
+      "intent": "chit-chat",
+      "missing_fields": ["time_window"],
+      "matched_columns": ["cpuusage", "memory_utilization", "gpon_rxsignallevel", "gpon_txsignallevel", "wifi_radio_1_stats_noise"],
+      "explanation": "Performance diagnostic metrics are available for analysis",
+      "suggested_question": "Could you specify when you experienced slow internet (e.g., 'yesterday evening', 'last week', or a specific date)?"
+    }}
+
+    ---
+
+    #### Example 4 — RCA now answerable
+    Chat history: [
+      "User: Why did my router reboot?",
+      "Assistant: I need your serial number.",
+      "User: My serial is 90100000000V412000536",
+      "User: The reboot happened yesterday at 03:00"
+    ]
+    Query: "Thanks"
+    matched_columns: ["hardware_reboot", "last_reboot_reason_split", "cpuusage", "memory_utilization", "gpon_connectionstatus"]
+    explanation: "RCA query for reboot cause. All diagnostic columns available"
+
+    Output:
+    {{
+      "intent": "rca",
+      "missing_fields": [],
+      "matched_columns": ["hardware_reboot", "last_reboot_reason_split", "cpuusage", "memory_utilization", "gpon_connectionstatus"],
+      "explanation": "RCA query for reboot cause. All diagnostic columns available",
+      "suggested_question": null
+    }}
+
+    ---
+
+    #### Example 5 — Metric not supported (empty matched_columns)
+    Chat history: []  
+    Query: "What is the WiFi download latency?"
+    matched_columns: []
+    explanation: "WiFi download latency is not captured. Related metrics like signal strength and downlink rates are available"
+
+    Output:
+    {{
+      "intent": "chit-chat",
+      "missing_fields": [],
+      "matched_columns": [],
+      "explanation": "WiFi download latency is not captured. Related metrics like signal strength and downlink rates are available",
+      "suggested_question": "I'm not sure what you mean by WiFi download latency. Could you specify if you meant signal strength, throughput, or another parameter?"
+    }}
+
+    ---
+
+    #### Example 6 — Technical query with everything available
+    Chat history: ["User: My serial is 90100000000V412000536"]
+    Query: "Show me CPU and memory usage"
+    matched_columns: ["cpuusage", "memory_utilization"]
+    explanation: "CPU and memory metrics directly available"
+
+    Output:
+    {{
+      "intent": "pandas-agent",
+      "missing_fields": [],
+      "matched_columns": ["cpuusage", "memory_utilization"],
+      "explanation": "CPU and memory metrics directly available",
+      "suggested_question": null
+    }}
+
+    ---
+
+    ### Now classify the following user query according to the schema:
+
+    Chat history:
+    {chat_history}
+
+    Query:
+    {user_query}
+
+    Return only JSON.  
+    Output: {output_parser}
+
+
+feature_validation_template:
+  template: >
+    You are a **Feature Validation Assistant** for a broadband router telemetry chatbot.
+
+    **Task:** Analyze the chat history and current query to determine if the requested router metrics exist in the telemetry dataset.
+
+    ---
+
+    ## UNDERSTANDING FEATURES:
+
+    **CRITICAL: Before answering any question, you MUST thoroughly review the KEY COLUMNS REFERENCE dictionary below.**
+
+    The KEY COLUMNS REFERENCE is a comprehensive dictionary where:
+    - **Key** = Actual feature/column name in the dataframe
+    - **Value** = Human-readable description of what that feature represents
+
+    **Instructions for using KEY COLUMNS REFERENCE:**
+
+    1. **Always consult this dictionary first** when interpreting user questions about router metrics
+    2. **Identify the correct column name** by matching the user's question to the feature descriptions
+    3. **Understand the context** of each feature by reading its description carefully
+    4. **Check related features** within the same category (e.g., all WIFI RADIO 1 features together)
+    5. **Pay attention to units** mentioned in descriptions (%, dBm, seconds, etc.)
+
+    **Common mistakes to avoid:**
+    - Using description text instead of actual column names in queries
+    - Confusing similar features (e.g., wifi_radio_1 vs wifi_radio_2)
+    - Ignoring units when interpreting values
+    - Missing relevant related columns that provide additional context
+
+    ---
+
+    ## KEY COLUMNS REFERENCE
+
+    KEY_COLUMNS_REFERENCE: {{
+    
+        # Identity & time
+        "serialnumber": "Router/device ID",
+        "date": "Date of telemetry record (YYYY-MM-DD)",
+        "time": "Timestamp of telemetry record (datetime)",
+        "timestamp": "Sample timestamp string (YYYY-MM-DD HH:MM:SS)",
+        "manufacturer": "Device manufacturer",
+        "productclass": "Router model/class",
+        "hardware_version": "Hardware version",
+        "firmware_version": "Firmware version",
+
+        # Reboots & uptime
+        "hardware_reboot": "Hardware reboot flag (1=reboot, 0=no reboot)",
+        "firmware_reboot": "Reboot due to firmware update (flag)",
+        "telemetry_restart": "Telemetry service restart flag",
+        "last_reboot_reason_split": "Categorized reason for last reboot",
+        "deviceuptime": "Seconds since last reboot",
+
+        # CPU & memory & storage
+        "cpuusage": "CPU utilization (%)",
+        "cpu_temp_split": "CPU temperature (°C)",
+        "memory_utilization": "Memory utilization (%)",
+        "flash_usage_nvram_split_perc": "NVRAM flash usage (%)",
+        "processnumberofentries": "Number of process table entries (processes)",
+
+        # GPON / optical
+        "gpon_rxsignallevel": "GPON received optical power (dBm)",
+        "gpon_txsignallevel": "GPON transmitted optical power (dBm)",
+        "gpon_connectionstatus": "GPON link status (Up/Down)",
+        "gpon_operationalstate": "GPON operational state",
+        "gpon_registrationstate": "ONU registration state",
+        "gpon_signalfail": "Optical signal failure indicator",
+        "gpon_signaldegrade": "Optical signal degradation indicator",
+
+        # WiFi Radio 1 (2.4 GHz)
+        "wifi_radio_1_status": "2.4 GHz radio status (Up/Down)",
+        "wifi_radio_1_channel": "2.4 GHz operating channel",
+        "wifi_radio_1_channel_change": "2.4 GHz channel change event flag",
+        "wifi_radio_1_channelsinuse": "2.4 GHz channels in use (CSV list)",
+        "wifi_radio_1_stats_noise": "2.4 GHz noise floor (dBm)",
+        "wifi_radio_1_stats_x_comcast_com_channelutilization": "2.4 GHz channel utilization (%)",
+        "wifi_radio_1_operatingchannelbandwidth": "2.4 GHz channel width (MHz)",
+        "wifi_radio_1_total_channels_active": "Count of active channels for 2.4 GHz radio",
+
+        # WiFi Radio 2 (5 GHz)
+        "wifi_radio_2_status": "5 GHz radio status (Up/Down)",
+        "wifi_radio_2_channel": "5 GHz operating channel",
+        "wifi_radio_2_channel_change": "5 GHz channel change event flag",
+        "wifi_radio_2_channelsinuse": "5 GHz channels in use (CSV list)",
+        "wifi_radio_2_stats_noise": "5 GHz noise floor (dBm)",
+        "wifi_radio_2_stats_x_comcast_com_channelutilization": "5 GHz channel utilization (%)",
+        "wifi_radio_2_operatingchannelbandwidth": "5 GHz channel width (MHz)",
+        "wifi_radio_2_total_channels_active": "Count of active channels for 5 GHz radio",
+
+        # WiFi APs
+        "wifi_accesspoint_1_status": "WiFi Access Point 1 status (Enabled/Disabled)",
+        "wifi_accesspoint_1_maxassociateddevices": "AP1 max allowed associated devices",
+        "wifi_accesspoint_1_associateddevicenumberofentries": "AP1 current associated devices",
+        "wifi_accesspoint_2_status": "WiFi Access Point 2 status (Enabled/Disabled)",
+        "wifi_accesspoint_2_maxassociateddevices": "AP2 max allowed associated devices",
+        "wifi_accesspoint_2_associateddevicenumberofentries": "AP2 current associated devices",
+
+        # WiFi aggregated client metrics
+        "total_band_change": "Total WiFi band/channel switch events",
+        "signalstrength_min": "Minimum client RSSI (dBm)",
+        "signalstrength_max": "Maximum client RSSI (dBm)",
+        "signalstrength_avg": "Average client RSSI (dBm)",
+        "downlink_rate_min": "Minimum client downlink rate",
+        "downlink_rate_max": "Maximum client downlink rate",
+        "downlink_rate_avg": "Average client downlink rate",
+        "uplink_rate_min": "Minimum client uplink rate",
+        "uplink_rate_max": "Maximum client uplink rate",
+        "uplink_rate_avg": "Average client uplink rate",
+
+        # Interfaces (status + reboot flags)
+        "ppp_interface_1_status": "PPP interface status (Up/Down)",
+        "ip_interface_1_status": "IP interface status (Up/Down)",
+        "ip_interface_1_lastchange": "IP interface last state change counter/time (device-specific units; TR-181 often seconds)",
+        "ip_interface_1_reboot": "IP interface state-change/reboot flag",
+        "ethernet_link_1_status": "Ethernet link status (Up/Down)",
+        "ethernet_link_1_lastchange": "Ethernet link last state change counter/time (device-specific units; TR-181 often seconds)",
+        "ethernet_interface_reboot": "Ethernet interface state-change/reboot flag",
+
+        # DHCP, NAT, devices
+        "dhcpv4_server_pool_1_status": "DHCPv4 server pool status",
+        "nat_portmappingnoofentries": "Active NAT port mappings (count)",
+        "hosts_connected_device_number": "Total connected client devices",
+        "n_devices": "Total number of devices observed",
+        "empty_last_telemetry": "Previous telemetry missing/empty flag",
+    }}
+
+    ---
+
+    ## Instructions
+
+    1. **Identify** what metrics/features the user is requesting (consider synonyms and technical equivalents)
+    2. **Match** user terms to available columns in KEY_COLUMNS_REFERENCE
+    3. **Classify** the overall request as:
+      - **AVAILABLE**: All requested metrics exist (exact or clear equivalent)
+      - **PARTIALLY_AVAILABLE**: Some metrics exist or related alternatives are available
+      - **UNAVAILABLE**: Critical metrics are missing from the dataset
+
+    ---
+
+    ## Output Schema
+
+    Return **only** this JSON structure:
+
+    {{
+      "status": "<AVAILABLE | PARTIALLY_AVAILABLE | UNAVAILABLE>",
+      "matched_columns": ["<actual column names that match the request>"],
+      "explanation": "<brief explanation of what's available or why not>",
+      "suggested_response": "<message for user, or null if status is AVAILABLE or PARTIALLY_AVAILABLE>"
+    }}
+
+    **Rules:**
+    - `matched_columns`: List all relevant column names (empty array if UNAVAILABLE)
+    - `explanation`: Be specific about what data exists and how it relates to the request
+    - `suggested_response`: Only provide when status is UNAVAILABLE; offer alternatives or explain limitations
+
+    ---
+
+    ## Examples
+
+    ### Example 1: AVAILABLE
+
+    Chat history: []
+    Query: "Show me CPU usage and memory for router 90100000000V412000536"
+
+    {{
+      "status": "AVAILABLE",
+      "matched_columns": ["cpuusage", "memory_utilization"],
+      "explanation": "CPU utilization (%) and memory utilization (%) are directly available",
+      "suggested_response": null
+    }}
+
+    ---
+
+    ### Example 2: AVAILABLE (multiple related metrics)
+
+    Chat history: []
+    Query: "Show me all WiFi 2.4GHz radio information"
+
+    {{
+      "status": "AVAILABLE",
+      "matched_columns": [
+        "wifi_radio_1_status",
+        "wifi_radio_1_channel",
+        "wifi_radio_1_stats_noise",
+        "wifi_radio_1_stats_x_comcast_com_channelutilization",
+        "wifi_radio_1_operatingchannelbandwidth",
+        "wifi_radio_1_channelsinuse"
+      ],
+      "explanation": "All WiFi 2.4 GHz radio metrics are available including status, channel, noise, utilization, and bandwidth",
+      "suggested_response": null
+    }}
+
+    ---
+
+    ### Example 3: UNAVAILABLE
+
+    Chat history: []
+    Query: "What's the ping latency to google.com?"
+
+    {{
+      "status": "UNAVAILABLE",
+      "matched_columns": [],
+      "explanation": "Ping latency metrics are not captured in the telemetry dataset",
+      "suggested_response": "I apologize, but ping latency data is not available. However, I can analyze network performance using GPON signal levels (gpon_rxsignallevel, gpon_txsignallevel), interface status, or connection status. Would you like to explore these metrics instead?"
+    }}
+
+    ---
+
+    ### Example 4: PARTIALLY_AVAILABLE (mixed request)
+
+    Chat history: ["User: My router serial is 90100000000V412000536"]
+    Query: "Show me WiFi signal strength, channel congestion, and DNS response times"
+
+    {{
+      "status": "PARTIALLY_AVAILABLE",
+      "matched_columns": [
+        "signalstrength_avg",
+        "signalstrength_min",
+        "signalstrength_max",
+        "wifi_radio_1_stats_x_comcast_com_channelutilization",
+        "wifi_radio_2_stats_x_comcast_com_channelutilization"
+      ],
+      "explanation": "WiFi signal strength (client RSSI) and channel utilization are available for both 2.4 GHz and 5 GHz radios. However, DNS response times are not tracked",
+      "suggested_response": null
+    }}
+
+    ---
+
+    ### Example 5: AVAILABLE (with context)
+
+    Chat history: [
+      "User: I'm having WiFi issues",
+      "Assistant: I can help analyze that. What would you like to check?",
+      "User: The connection keeps dropping"
+    ]
+    Query: "Check if there's interference"
+
+    {{
+      "status": "AVAILABLE",
+      "matched_columns": [
+        "wifi_radio_1_stats_noise",
+        "wifi_radio_2_stats_noise",
+        "wifi_radio_1_stats_x_comcast_com_channelutilization",
+        "wifi_radio_2_stats_x_comcast_com_channelutilization",
+        "total_band_change",
+        "wifi_radio_1_status",
+        "wifi_radio_2_status"
+      ],
+      "explanation": "Interference indicators available: noise floor (dBm), channel utilization (%), band change events, and radio status",
+      "suggested_response": null
+    }}
+
+    ---
+
+    ### Example 6: UNAVAILABLE (unsupported metric with alternative)
+
+    Chat history: []
+    Query: "Show me the router's internal temperature sensor readings"
+
+    {{
+      "status": "UNAVAILABLE",
+      "matched_columns": [],
+      "explanation": "Internal temperature sensors are not available. Only CPU temperature (cpu_temp_split) is tracked",
+      "suggested_response": "Router internal temperature sensors are not available in the telemetry. However, I can show you CPU temperature data (cpu_temp_split). Would that be helpful?"
+    }}
+
+    ---
+
+    ### Example 7: AVAILABLE (reboot analysis)
+
+    Chat history: ["User: My serial is 90100000000V412000536"]
+    Query: "When did my router last reboot and why?"
+
+    {{
+      "status": "AVAILABLE",
+      "matched_columns": [
+        "hardware_reboot",
+        "firmware_reboot",
+        "last_reboot_reason_split",
+        "deviceuptime",
+        "date",
+        "time"
+      ],
+      "explanation": "Reboot information is available including hardware/firmware reboot flags, categorized reboot reason, uptime, and timestamps",
+      "suggested_response": null
+    }}
+
+    ---
+
+    ### Example 8: PARTIALLY_AVAILABLE (bandwidth-related)
+
+    Chat history: []
+    Query: "What's my router's bandwidth usage and speed?"
+
+    {{
+      "status": "PARTIALLY_AVAILABLE",
+      "matched_columns": [
+        "downlink_rate_avg",
+        "downlink_rate_min",
+        "downlink_rate_max",
+        "uplink_rate_avg",
+        "uplink_rate_min",
+        "uplink_rate_max"
+      ],
+      "explanation": "Client downlink and uplink rates are available. These represent WiFi client connection rates but not total WAN bandwidth usage",
+      "suggested_response": null
+    }}
+
+    ---
+
+    ## Key Reminders
+
+    - **Be thorough**: Check all KEY_COLUMNS_REFERENCE entries before marking as UNAVAILABLE
+    - **Think broadly**: Translate user-friendly terms to technical column names (e.g., "WiFi speed" → downlink/uplink rates)
+    - **Use context**: Previous messages in chat_history may clarify the request
+    - **Suggest alternatives**: When UNAVAILABLE, always offer related metrics if they exist
+    - **Be specific**: List exact column names, not descriptions
+    - **Don't confuse serialnumber with a functional feature**: It is just an identifier
+
+    ---
+
+    Chat history:
+    {chat_history}
+
+    Current query:
+    {user_query}
+
+    Return only JSON.
+    Output: {output_parser}

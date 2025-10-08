@@ -70,6 +70,22 @@ class IntentClassificationResult(BaseModel):
         )
     )
 
+    matched_columns: List[str] = Field(
+        default_factory=list,
+        description=(
+            "List of telemetry dataset column names matching the user’s request. "
+            "Should be empty if `status` is UNAVAILABLE."
+        ),
+    )
+
+    explanation: str = Field(
+        description=(
+            "Concise explanation of availability determination. "
+            "Should specify what metrics exist and how they relate to the user's question."
+        ),
+        examples=["CPU utilization (%) and memory utilization (%) are directly available."]
+    )
+
 
 class Verification(BaseModel):
     verification: Literal["VALID", "INVALID"] = Field(description="Verification result")
@@ -103,7 +119,6 @@ class customGraph(TypedDict):
     """
 
     question: str
-    serial_number: str
     generation_scratchpad: Annotated[Sequence[BaseMessage], add_messages]
     chat_history: Annotated[Sequence[BaseMessage], add_messages]
     intent_classification: IntentClassificationResult
@@ -113,5 +128,51 @@ class customGraph(TypedDict):
     verification: Verification
     data: pd.DataFrame
     serialnumber: Optional[str]
+    matched_columns: Optional[List[str]]
+    explanation: str
     
+
+class FeatureValidationResult(BaseModel):
+    """
+    Represents the result of validating whether specific router telemetry features
+    (requested by the user) exist in the available dataset.
+
+    This model is used by the Feature Validation Assistant to determine
+    if user-requested metrics can be directly queried from the router telemetry data.
+
+    """
+
+    status: Literal["AVAILABLE", "PARTIALLY_AVAILABLE", "UNAVAILABLE"] = Field(
+        description=(
+            "Indicates overall feature availability in the dataset.\n"
+            "- AVAILABLE: All metrics are found\n"
+            "- PARTIALLY_AVAILABLE: Some found, some missing\n"
+            "- UNAVAILABLE: None found"
+        )
+    )
+
+    matched_columns: List[str] = Field(
+        default_factory=list,
+        description=(
+            "List of telemetry dataset column names matching the user’s request. "
+            "Should be empty if `status` is UNAVAILABLE."
+        ),
+    )
+
+    explanation: str = Field(
+        description=(
+            "Concise explanation of availability determination. "
+            "Should specify what metrics exist and how they relate to the user's question."
+        ),
+        examples=["CPU utilization (%) and memory utilization (%) are directly available."]
+    )
+
+    suggested_response: Optional[str] = Field(
+        default=None,
+        description=(
+            "Optional clarification or guidance message to return to the user. "
+            "Only populated when status is UNAVAILABLE or clarification is helpful."
+        ),
+        examples=[None, "Ping latency data is unavailable, but I can analyze signal levels instead."]
+    )
 

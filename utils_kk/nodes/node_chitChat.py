@@ -5,7 +5,7 @@ sys.path.insert(0, project_root)
 
 from dotenv import load_dotenv
 from utils_kk.variables.variable_definitions import customGraph
-from utils_kk.prompts.prompts_chitChat import chit_chat_template
+from utils_kk.misl_function.misl_loadPrompt import load_prompt
 from utils_kk.llm_initializations import llm
 import structlog
 from langchain.prompts import ChatPromptTemplate
@@ -21,6 +21,9 @@ load_dotenv(override=True)
 
 def chitChat_agent(state: customGraph):
 
+    chit_chat_template = load_prompt(prompt_name="chit_chat_template", 
+                                     filename="prompts_chitChat.yml")
+    
     prompt = ChatPromptTemplate.from_messages([
         ("system", chit_chat_template),
         MessagesPlaceholder(variable_name="chat_history"),

@@ -7,13 +7,13 @@ from dotenv import load_dotenv
 from langchain_experimental.agents import create_pandas_dataframe_agent
 from utils_kk.variables.variable_definitions import customGraph, Verification
 from langchain_core.output_parsers import JsonOutputParser, PydanticOutputParser
-from utils_kk.prompts.prompts_pandasAgent import pandas_agent_verification_template, pandas_agent_revisor_prompt, pandas_agent_prompt
 from utils_kk.llm_initializations import llm
 import structlog
 from utils_kk.misl_function.misl_getData import get_data
 from langchain_core.messages import AIMessage
 from langchain_core.prompts.prompt import PromptTemplate
 import pandas as pd
+from utils_kk.misl_function.misl_loadPrompt import load_prompt
 structlogger = structlog.get_logger(__name__)
 load_dotenv(override=True)
 
@@ -33,15 +33,22 @@ def pandas_agent_processing(state: customGraph):
 
 
     #data = pd.DataFrame.from_records(state.get("data", None))
-    data = state.get("data", None)
+    data = pd.DataFrame.from_records(state.get("data"))
     serial_number = state.get("serialnumber", None)
     chat_history = state.get("chat_history", [])
+    matched_columns = state.get("matched_columns", None)
+    explanation = state.get("explanation", None)
+
+    pandas_agent_prompt = load_prompt(prompt_name="pandas_agent_prompt", 
+                                      filename="prompts_pandasAgent.yml")
 
     prompt = PromptTemplate(template=pandas_agent_prompt,
                             partial_variables={
                                 "onerow": data.iloc[0].to_dict(),
                                 "chat_history": chat_history,
-                                "serial_number": serial_number
+                                "serial_number": serial_number,
+                                "matched_columns": matched_columns,
+                                "explanation": explanation
                             })
 
     agent = create_pandas_dataframe_agent(llm, data, verbose=True, 
@@ -49,8 +56,14 @@ def pandas_agent_processing(state: customGraph):
     return_intermediate_steps=True, prefix=prompt.template)
 
     if state.get("verification", None) == "INVALID":
+        
+        pandas_agent_revisor_prompt = load_prompt(prompt_name="pandas_agent_revisor_prompt", 
+                                                filename="prompts_pandasAgent.yml")
+
         query = pandas_agent_revisor_prompt.format(question=state.get("question", None))
+
     else:
+        
         query = state.get("question", None)
 
     structlogger.debug("-- From chitchat node", detail=query)
@@ -79,7 +92,9 @@ def validate_pandas_agent(state: customGraph):
     intermediate_result = state.get("intermediate_result", None)
     intermediate_steps = state.get("generation_scratchpad", None)
 
-    
+    pandas_agent_verification_template = load_prompt(prompt_name="pandas_agent_verification_template", 
+                                                    filename="prompts_pandasAgent.yml")
+
     output_format = PydanticOutputParser(
         pydantic_object = Verification).get_format_instructions()
     verification_prompt = PromptTemplate(template=pandas_agent_verification_template,
