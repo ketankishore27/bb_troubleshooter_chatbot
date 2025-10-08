@@ -14,6 +14,7 @@ from langchain_core.messages import AIMessage
 from langchain_core.prompts.prompt import PromptTemplate
 import pandas as pd
 from utils_kk.misl_function.misl_loadPrompt import load_prompt
+from langchain_core.messages.utils import get_buffer_string
 structlogger = structlog.get_logger(__name__)
 load_dotenv(override=True)
 
@@ -45,7 +46,7 @@ def pandas_agent_processing(state: customGraph):
     prompt = PromptTemplate(template=pandas_agent_prompt,
                             partial_variables={
                                 "onerow": data.iloc[0].to_dict(),
-                                "chat_history": chat_history,
+                                "chat_history": get_buffer_string(chat_history),
                                 "serial_number": serial_number,
                                 "matched_columns": matched_columns,
                                 "explanation": explanation
@@ -53,7 +54,7 @@ def pandas_agent_processing(state: customGraph):
 
     agent = create_pandas_dataframe_agent(llm, data, verbose=True, 
     allow_dangerous_code=True, agent_type='tool-calling', 
-    return_intermediate_steps=True, prefix=prompt.template)
+    return_intermediate_steps=True, prefix=prompt.format())
 
     if state.get("verification", None) == "INVALID":
         
@@ -66,7 +67,7 @@ def pandas_agent_processing(state: customGraph):
         
         query = state.get("question", None)
 
-    structlogger.debug("-- From chitchat node", detail=query)
+    structlogger.debug("-- From pandas node", detail=query)
     result = agent.invoke(query)
 
     intermediate_steps = []
@@ -87,10 +88,8 @@ def pandas_agent_processing(state: customGraph):
 
 def validate_pandas_agent(state: customGraph):
     
-    data = state.get("data", None)
     question = state.get("question", None)
     intermediate_result = state.get("intermediate_result", None)
-    intermediate_steps = state.get("generation_scratchpad", None)
 
     pandas_agent_verification_template = load_prompt(prompt_name="pandas_agent_verification_template", 
                                                     filename="prompts_pandasAgent.yml")
@@ -99,16 +98,16 @@ def validate_pandas_agent(state: customGraph):
         pydantic_object = Verification).get_format_instructions()
     verification_prompt = PromptTemplate(template=pandas_agent_verification_template,
                                          partial_variables={
-        "output_parser": output_format                                                                 
+        "output_parser": output_format,
+        "chat_history": get_buffer_string(state.get("chat_history", [])[:-1])
     })
     chain = verification_prompt | llm | JsonOutputParser()
     
     # try:
     #     for trial in range(int(os.getenv("num_retries", None))):
-    #         response = chain.invoke(input={"question": question,
-    #                                       "intermediate_steps": intermediate_steps,
-    #                                       "data": data,
-    #                                       "intermediate_result": intermediate_result})
+    #         response = chain.invoke(input={
+    #             "intermediate_result": intermediate_result,
+    #         })
     #         if isinstance(response, dict):
     #             if "verification" in response:
     #                 structlogger.debug("-- Verification node", detail=response)
@@ -120,6 +119,7 @@ def validate_pandas_agent(state: customGraph):
     #             structlogger.error("Wrong schema recieved", detail=response)
     # except Exception as e:
     #     print(e)
+
     return {"verification": "VALID"}
 
 def merge_answer(state: customGraph):

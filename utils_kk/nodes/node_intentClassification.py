@@ -12,6 +12,7 @@ from utils_kk.llm_initializations import llm
 from langchain_core.output_parsers import JsonOutputParser, PydanticOutputParser
 from langchain_core.prompts.prompt import PromptTemplate
 from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.messages.utils import get_buffer_string
 import structlog
 import json
 structlogger = structlog.get_logger(__name__)
@@ -25,7 +26,7 @@ def extract_serial_number(state: customGraph):
 
     prompt = PromptTemplate(template=serialnumber_extractor_prompt,
                             partial_variables={
-                                "chat_history": state.get("chat_history", []),
+                                "chat_history": get_buffer_string(state.get("chat_history", [])),
                                 "output_parser": PydanticOutputParser(
                                     pydantic_object = SerialNumberOnlyResult).get_format_instructions()
                             })
@@ -55,7 +56,7 @@ def feature_validation_extractor(state: customGraph):
 
     prompt = PromptTemplate(template=feature_validation_template,
                             partial_variables={
-                                "chat_history": state.get("chat_history", []),
+                                "chat_history": get_buffer_string(state.get("chat_history", [])),
                                 "output_parser": PydanticOutputParser(
                                     pydantic_object = FeatureValidationResult).get_format_instructions()
                             })
@@ -92,7 +93,7 @@ def predict_intent(state: customGraph, feature_validation_result: FeatureValidat
 
     intent_classification_prompt = PromptTemplate(template=intent_classification_template,
                                                     partial_variables={
-                                                        "chat_history": state.get("chat_history", []),
+                                                        "chat_history": get_buffer_string(state.get("chat_history", [])),
                                                         "output_parser": output_format,
                                                         "serial_number": serial_number,
                                                         "matched_columns": matched_columns,

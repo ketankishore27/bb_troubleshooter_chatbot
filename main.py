@@ -48,7 +48,7 @@ def create_graph():
     graph.add_conditional_edges("validate_pandas_agent", pandas_agent_branch,
                                 {
                                     "merge_intermediate_answer": "merge_answer", 
-                                    "INVALID": "pandas-agent processing"
+                                    "INVALID Response": "pandas-agent processing"
                                 }
     )
     graph.add_edge("merge_answer", END)

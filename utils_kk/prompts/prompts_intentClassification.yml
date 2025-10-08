@@ -73,22 +73,10 @@ intent_classification_template:
 
     ---
 
-    ### 3. chit-chat
-    - **Purpose:** Non-technical conversation or cases where required details are missing.  
-    - Includes greetings, acknowledgments, small talk, or questions about unsupported topics.  
-    - **Examples:**
-      * "Hi, how are you?"
-      * "Thanks!"
-      * "My serial number is 90100000000V412000536"
-      * Any query where `matched_columns` is empty (unavailable metrics)
-      * Any query missing required fields (serial_number, time_window)
-
-    ---
-
     ## 🧠 Decision Logic
 
     1. **Feature Availability Check**  
-      - If `matched_columns` is EMPTY → classify as **chit-chat** (requested metrics don't exist)
+      - If `matched_columns` is EMPTY → classify as **pandas-agent** (requested metrics don't exist)
       - Use the `explanation` to understand what alternatives exist or why metrics are unavailable
 
     2. **Unanswered Question Logic**  
@@ -100,7 +88,7 @@ intent_classification_template:
     3. **Intent Resolution**
       - If query fits pandas-agent → check for **serial_number** AND `matched_columns` not empty
       - If query fits rca → check for **serial_number**, **time_window** AND `matched_columns` not empty
-      - If preconditions fail → downgrade to **chit-chat** and suggest a question to gather missing fields
+      - If preconditions fail → downgrade to **pandas-agent** and suggest a question to gather missing fields
 
     ---
 
@@ -117,7 +105,7 @@ intent_classification_template:
     Return **only** a JSON object (no explanations or prose):
 
     {{
-      "intent": "<pandas-agent | rca | chit-chat>",
+      "intent": "<pandas-agent | rca t>",
       "missing_fields": ["<field names>"],
       "matched_columns": ["<actual telemetry column names from input>"],
       "explanation": "<explanation from input>",
@@ -135,24 +123,7 @@ intent_classification_template:
 
     ### 🧩 Few-Shot Examples
 
-    #### Example 1 — pandas-agent query, missing serial
-    Chat history: []  
-    Query: "When did my router reboot last time?"
-    matched_columns: ["hardware_reboot", "last_reboot_reason_split", "deviceuptime"]
-    explanation: "Reboot metrics are available in the dataset"
-
-    Output:
-    {{
-      "intent": "chit-chat",
-      "missing_fields": ["serial_number"],
-      "matched_columns": ["hardware_reboot", "last_reboot_reason_split", "deviceuptime"],
-      "explanation": "Reboot metrics are available in the dataset",
-      "suggested_question": "Could you please provide your router's serial number so I can check when it last rebooted?"
-    }}
-
-    ---
-
-    #### Example 2 — pandas-agent, now answerable
+    #### Example 1 — pandas-agent, now answerable
     Chat history: [
       "User: When did my router reboot last time?",
       "Assistant: Could you please provide your router's serial number?"
@@ -169,23 +140,6 @@ intent_classification_template:
       "matched_columns": ["hardware_reboot", "last_reboot_reason_split", "deviceuptime", "date", "time"],
       "explanation": "Previous reboot question is answerable with provided serial number",
       "suggested_question": null
-    }}
-
-    ---
-
-    #### Example 3 — RCA query, missing time_window
-    Chat history: ["User: My router serial is 90100000000V412000536"]  
-    Query: "Why is my internet slow?"
-    matched_columns: ["cpuusage", "memory_utilization", "gpon_rxsignallevel", "gpon_txsignallevel", "wifi_radio_1_stats_noise"]
-    explanation: "Performance diagnostic metrics are available for analysis"
-
-    Output:
-    {{
-      "intent": "chit-chat",
-      "missing_fields": ["time_window"],
-      "matched_columns": ["cpuusage", "memory_utilization", "gpon_rxsignallevel", "gpon_txsignallevel", "wifi_radio_1_stats_noise"],
-      "explanation": "Performance diagnostic metrics are available for analysis",
-      "suggested_question": "Could you specify when you experienced slow internet (e.g., 'yesterday evening', 'last week', or a specific date)?"
     }}
 
     ---
@@ -208,23 +162,6 @@ intent_classification_template:
       "matched_columns": ["hardware_reboot", "last_reboot_reason_split", "cpuusage", "memory_utilization", "gpon_connectionstatus"],
       "explanation": "RCA query for reboot cause. All diagnostic columns available",
       "suggested_question": null
-    }}
-
-    ---
-
-    #### Example 5 — Metric not supported (empty matched_columns)
-    Chat history: []  
-    Query: "What is the WiFi download latency?"
-    matched_columns: []
-    explanation: "WiFi download latency is not captured. Related metrics like signal strength and downlink rates are available"
-
-    Output:
-    {{
-      "intent": "chit-chat",
-      "missing_fields": [],
-      "matched_columns": [],
-      "explanation": "WiFi download latency is not captured. Related metrics like signal strength and downlink rates are available",
-      "suggested_question": "I'm not sure what you mean by WiFi download latency. Could you specify if you meant signal strength, throughput, or another parameter?"
     }}
 
     ---

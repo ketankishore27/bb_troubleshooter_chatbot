@@ -20,4 +20,4 @@ def pandas_agent_branch(state: customGraph):
         return "merge_intermediate_answer"
 
     elif verification == "INVALID":
-        return "chit-chat processing"
+        return "INVALID Response"

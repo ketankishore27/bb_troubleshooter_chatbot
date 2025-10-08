@@ -41,10 +41,9 @@ class IntentClassificationResult(BaseModel):
         ...,
         description=(
             "The classified intent of the user query. "
-            "Must be one of: 'pandas-agent', 'rca', or 'chit-chat'.\n"
+            "Must be one of: 'pandas-agent', 'rca'.\n"
             "- pandas-agent: Simple, exploratory, fact-based queries (metrics, counts, logs).\n"
             "- rca: Diagnostic/troubleshooting queries (why/reason/cause).\n"
-            "- chit-chat: Non-technical, conversational, or when required fields are missing."
         )
     )
 

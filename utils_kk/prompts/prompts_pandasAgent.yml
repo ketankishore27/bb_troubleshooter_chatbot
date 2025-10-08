@@ -8,27 +8,22 @@ pandas_agent_revisor_prompt:
 pandas_agent_verification_template:
   template: >
     You are a data validation assistant. 
-    Your task is to check whether the final answer provided by an agent is correct, based on the available dataframe and the intermediate reasoning steps.
+    Your task is to check whether the final answer provided by an agent is correct, based on the chat conversation.
 
     You will be given:
-    1. The user’s question
-    2. The agent’s intermediate steps (including tool calls and their results)
-    3. The dataframe (or a relevant slice of it)
+    1. The chat conversation
     4. The agent’s intermediate/final result
 
     Your job:
-    - Verify whether the agent’s result can be derived correctly from the dataframe.
     - Check if each intermediate step was logical and supported by the data.
-    - Detect any hallucination (claims not backed by the dataframe).
-    - If the result is correct, respond with:  
-      **VALID** — and give a short justification.  
-    - If the result is incorrect, respond with:  
-      **INVALID** — then provide the corrected answer with reasoning.
+    - Detect any hallucination.
+    - If the result is correct, respond with: VALID.  
+    - If the result is incorrect, respond with: INVALID.
 
     ---
 
-    User Question:
-    {question}
+    Chat History:
+    {chat_history}
 
     Agent’s Intermediate Result:
     {intermediate_result}
@@ -49,13 +44,11 @@ pandas_agent_prompt:
 
     **YOU MUST ONLY QUERY THE FOLLOWING COLUMNS:**
     {matched_columns} and {explanation}
-
-    **DO NOT query any other columns under any circumstances.**
     
-    If matched_columns or explanation does not hold any hint or is empty or None, only then look for other parameters
-
     These inputs tell you which specific columns are relevant to answer the user's query.
     **Always check these fields first** before analyzing the dataframe.
+
+    If matched_columns or explanation does not hold any hint or is empty or None, only then look for other parameters
 
     ---
 
@@ -115,13 +108,38 @@ pandas_agent_prompt:
        - And so on...
 
     4. **Format your answer** in 2-3 sentences with actual values from the data
-
+    
     5. **DO NOT**:
        - Ask "What metric would you like?" if a specific metric was requested
        - Provide information about metrics that weren't asked
        - Default to reboot information unless reboots were asked about
        - Query columns that are NOT in the `matched_columns` list
 
+    ---
+
+    ## ⚠️ CRITICAL DATA INTERPRETATION RULES ⚠️
+
+    **REBOOT COLUMNS:**
+    - `hardware_reboot`: This is a FLAG column
+      - **hardware_reboot = 1** means a hardware reboot occurred at that timestamp
+      - **hardware_reboot = 0** means NO hardware reboot occurred
+      - If question asks about reboots → use hardware_reboot, last_reboot_reason_split, deviceuptime
+      - When answering "when was the last hardware reboot", filter for `hardware_reboot == 1` ONLY
+      - If all values are 0, the answer is "No hardware reboots recorded"
+    
+    - `firmware_reboot`: Similar flag (1=firmware reboot occurred, 0=no firmware reboot)
+    
+    - `last_reboot_reason_split`: Shows the reason for the LAST reboot (any type)
+      - This field can show reasons like "powerloss-reboot", "unknown" even when hardware_reboot=0
+      - This indicates the device rebooted for OTHER reasons (power loss, firmware, etc.)
+      - Do NOT treat all last_reboot_reason_split values as hardware reboots
+
+    **Example of CORRECT interpretation:**
+    ```
+    User: "When was the last hardware reboot?"
+    CORRECT: df[df['hardware_reboot'] == 1].sort_values('time').tail(1)
+    WRONG: df[df['last_reboot_reason_split'].notna()].tail(1)
+    ```
     ---
 
     ## EXAMPLES:
@@ -183,7 +201,7 @@ pandas_agent_prompt:
     - Ignoring units when interpreting values
     - Missing relevant related columns that provide additional context
     - **Querying columns NOT listed in matched_columns**
-
+    - "hardware_reboot": "Hardware reboot flag (1=reboot, 0=no reboot) - ONLY count as hardware reboot when value is 1",
     ---
 
     ## KEY COLUMNS REFERENCE
@@ -278,6 +296,10 @@ pandas_agent_prompt:
         "hosts_connected_device_number": "Total connected client devices",
         "n_devices": "Total number of devices observed",
         "empty_last_telemetry": "Previous telemetry missing/empty flag",
+
+        # Internet Usage
+        "wan_bytessent_delta": "Total bytes sent (between two transmissions) over the WAN interface",
+        "wan_bytesreceived_delta": "Total bytes received (between two transmissions) over the WAN interface",
     }}
 
     ---
